@@ -294,6 +294,24 @@ window_tree_cmp_pane(const void *a0, const void *b0)
 	return (result);
 }
 
+/*
+ * Expand the item format with strftime expansion as well, so formats can
+ * use %s (epoch) for countdown arithmetic against absolute timestamps.
+ */
+static char *
+window_tree_expand_format(const char *fmt, struct session *s,
+    struct winlink *wl, struct window_pane *wp)
+{
+	struct format_tree	*ft;
+	char			*expanded;
+
+	ft = format_create(NULL, NULL, FORMAT_NONE, 0);
+	format_defaults(ft, NULL, s, wl, wp);
+	expanded = format_expand_time(ft, fmt);
+	format_free(ft);
+	return (expanded);
+}
+
 static void
 window_tree_build_pane(struct session *s, struct winlink *wl,
     struct window_pane *wp, void *modedata, struct mode_tree_item *parent)
@@ -311,7 +329,7 @@ window_tree_build_pane(struct session *s, struct winlink *wl,
 	item->winlink = wl->idx;
 	item->pane = wp->id;
 
-	text = format_single(NULL, data->format, NULL, s, wl, wp);
+	text = window_tree_expand_format(data->format, s, wl, wp);
 	xasprintf(&name, "%u", idx);
 
 	mode_tree_add(data->data, parent, item, (uint64_t)wp, name, text, -1);
@@ -355,7 +373,7 @@ window_tree_build_window(struct session *s, struct winlink *wl,
 	item->winlink = wl->idx;
 	item->pane = -1;
 
-	text = format_single(NULL, data->format, NULL, s, wl, NULL);
+	text = window_tree_expand_format(data->format, s, wl, NULL);
 	xasprintf(&name, "%u", wl->idx);
 
 	if (data->type == WINDOW_TREE_SESSION ||
@@ -421,7 +439,7 @@ window_tree_build_session(struct session *s, void *modedata,
 	item->winlink = -1;
 	item->pane = -1;
 
-	text = format_single(NULL, data->format, NULL, s, NULL, NULL);
+	text = window_tree_expand_format(data->format, s, NULL, NULL);
 
 	if (data->type == WINDOW_TREE_SESSION)
 		expanded = 0;
