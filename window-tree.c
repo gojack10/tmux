@@ -33,6 +33,7 @@ static void		 window_tree_update(struct window_mode_entry *);
 static void		 window_tree_key(struct window_mode_entry *,
 			     struct client *, struct session *,
 			     struct winlink *, key_code, struct mouse_event *);
+static u_int		 window_tree_height(void *, u_int);
 
 #define WINDOW_TREE_DEFAULT_COMMAND "switch-client -Zt '%%'"
 
@@ -942,6 +943,18 @@ window_tree_get_key(void *modedata, void *itemdata, u_int line)
 	return (key);
 }
 
+static u_int
+window_tree_height(__unused void *modedata, u_int height)
+{
+	/*
+	 * Split roughly in half: session list on top, preview below. On
+	 * short screens fall back to the smallest list area tmux allows.
+	 */
+	if (height <= 20)
+		return (height <= 10 ? 0 : height - 10);
+	return (height / 2);
+}
+
 static struct screen *
 window_tree_init(struct window_mode_entry *wme, struct cmd_find_state *fs,
     struct args *args)
@@ -978,8 +991,8 @@ window_tree_init(struct window_mode_entry *wme, struct cmd_find_state *fs,
 	data->session_jump_keys = (args != NULL && args_has(args, 's'));
 
 	data->data = mode_tree_start(wp, args, window_tree_build,
-	    window_tree_draw, window_tree_search, window_tree_menu, NULL,
-	    window_tree_get_key, data, window_tree_menu_items,
+	    window_tree_draw, window_tree_search, window_tree_menu,
+	    window_tree_height, window_tree_get_key, data, window_tree_menu_items,
 	    window_tree_sort_list, nitems(window_tree_sort_list), &s);
 	mode_tree_zoom(data->data, args);
 
