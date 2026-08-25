@@ -619,6 +619,33 @@ mode_tree_remove(struct mode_tree_data *mtd, struct mode_tree_item *mti)
 	mode_tree_free_item(mti);
 }
 
+/*
+ * A selected tree row uses mode-style's yellow background and black
+ * foreground. Item formats can embed foreground colours; force those back
+ * to black while selected so yellow/red/green cache text stays legible.
+ */
+static char *
+mode_tree_selected_text(const char *text)
+{
+	const char	*cursor = text, *start, *end;
+	char		*result, *next;
+
+	result = xstrdup("");
+	while ((start = strstr(cursor, "#[fg=")) != NULL) {
+		end = strchr(start, ']');
+		if (end == NULL)
+			break;
+		xasprintf(&next, "%s%.*s#[fg=black]", result,
+		    (int)(start - cursor), cursor);
+		free(result);
+		result = next;
+		cursor = end + 1;
+	}
+	xasprintf(&next, "%s%s", result, cursor);
+	free(result);
+	return (next);
+}
+
 void
 mode_tree_draw(struct mode_tree_data *mtd)
 {
@@ -630,6 +657,7 @@ mode_tree_draw(struct mode_tree_data *mtd)
 	struct screen_write_ctx	 ctx;
 	struct grid_cell	 gc0, gc;
 	u_int			 w, h, i, j, sy, box_x, box_y, width;
+	u_int			 name_width, max_name_width;
 	char			*text, *start, *key;
 	const char		*tag, *symbol;
 	size_t			 size, n;
@@ -649,8 +677,14 @@ mode_tree_draw(struct mode_tree_data *mtd)
 	screen_write_clearscreen(&ctx, 8);
 
 	keylen = 0;
+	max_name_width = 0;
 	for (i = 0; i < mtd->line_size; i++) {
 		mti = mtd->line_list[i].item;
+		if (mtd->line_list[i].depth == 0 && mti->text != NULL) {
+			name_width = utf8_cstrwidth(mti->name) + mti->tagged;
+			if (name_width > max_name_width)
+				max_name_width = name_width;
+		}
 		if (mti->key == KEYC_NONE)
 			continue;
 		if ((int)mti->keylen + 3 > keylen)
@@ -706,8 +740,13 @@ mode_tree_draw(struct mode_tree_data *mtd)
 			tag = "*";
 		else
 			tag = "";
-		xasprintf(&text, "%-*s%s%s%s%s", keylen, key, start, mti->name,
-		    tag, (mti->text != NULL) ? ": " : "" );
+		if (line->depth == 0 && mti->text != NULL)
+			pad = max_name_width - utf8_cstrwidth(mti->name) -
+			    mti->tagged;
+		else
+			pad = 0;
+		xasprintf(&text, "%-*s%s%s%s%*s%s", keylen, key, start,
+		    mti->name, tag, pad, "", (mti->text != NULL) ? ": " : "");
 		width = utf8_cstrwidth(text);
 		if (width > w)
 			width = w;
@@ -729,8 +768,11 @@ mode_tree_draw(struct mode_tree_data *mtd)
 			screen_write_clearendofline(&ctx, gc.bg);
 			screen_write_nputs(&ctx, w, &gc, "%s", text);
 			if (mti->text != NULL) {
-				format_draw(&ctx, &gc, w - width, mti->text,
+				char *selected_text = mode_tree_selected_text(mti->text);
+
+				format_draw(&ctx, &gc, w - width, selected_text,
 				    NULL, 0);
+				free(selected_text);
 			}
 		}
 		free(text);
