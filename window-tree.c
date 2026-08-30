@@ -214,7 +214,7 @@ window_tree_cmp_session(const void *a0, const void *b0)
 
 	switch (window_tree_sort->field) {
 	case WINDOW_TREE_BY_INDEX:
-		result = sa->id - sb->id;
+		result = (sa->order > sb->order) - (sa->order < sb->order);
 		break;
 	case WINDOW_TREE_BY_TIME:
 		if (timercmp(&sa->activity_time, &sb->activity_time, >)) {

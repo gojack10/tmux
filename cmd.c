@@ -70,6 +70,7 @@ extern const struct cmd_entry cmd_lock_client_entry;
 extern const struct cmd_entry cmd_lock_server_entry;
 extern const struct cmd_entry cmd_lock_session_entry;
 extern const struct cmd_entry cmd_move_pane_entry;
+extern const struct cmd_entry cmd_move_session_entry;
 extern const struct cmd_entry cmd_move_window_entry;
 extern const struct cmd_entry cmd_new_session_entry;
 extern const struct cmd_entry cmd_new_window_entry;
@@ -162,6 +163,7 @@ const struct cmd_entry *cmd_table[] = {
 	&cmd_lock_server_entry,
 	&cmd_lock_session_entry,
 	&cmd_move_pane_entry,
+	&cmd_move_session_entry,
 	&cmd_move_window_entry,
 	&cmd_new_session_entry,
 	&cmd_new_window_entry,

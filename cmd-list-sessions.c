@@ -38,12 +38,25 @@
 static enum cmd_retval	cmd_list_sessions_exec(struct cmd *,
 			    struct cmdq_item *);
 
+static int
+cmd_list_sessions_cmp(const void *a0, const void *b0)
+{
+	const struct session *const	*a = a0;
+	const struct session *const	*b = b0;
+
+	if ((*a)->order < (*b)->order)
+		return (-1);
+	if ((*a)->order > (*b)->order)
+		return (1);
+	return (strcmp((*a)->name, (*b)->name));
+}
+
 const struct cmd_entry cmd_list_sessions_entry = {
 	.name = "list-sessions",
 	.alias = "ls",
 
-	.args = { "F:f:", 0, 0, NULL },
-	.usage = "[-F format] [-f filter]",
+	.args = { "F:f:O:", 0, 0, NULL },
+	.usage = "[-F format] [-f filter] [-O order]",
 
 	.flags = CMD_AFTERHOOK,
 	.exec = cmd_list_sessions_exec
@@ -53,21 +66,35 @@ static enum cmd_retval
 cmd_list_sessions_exec(struct cmd *self, struct cmdq_item *item)
 {
 	struct args		*args = cmd_get_args(self);
-	struct session		*s;
-	u_int		 	 n;
+	struct session		*s, **l = NULL;
+	u_int		 	 n, i;
 	struct format_tree	*ft;
-	const char		*template, *filter;
+	const char		*template, *filter, *order;
 	char			*line, *expanded;
 	int			 flag;
 
 	if ((template = args_get(args, 'F')) == NULL)
 		template = LIST_SESSIONS_TEMPLATE;
 	filter = args_get(args, 'f');
+	order = args_get(args, 'O');
+	if (order != NULL && strcmp(order, "order") != 0 &&
+	    strcmp(order, "name") != 0) {
+		cmdq_error(item, "invalid sort order");
+		return (CMD_RETURN_ERROR);
+	}
 
 	n = 0;
 	RB_FOREACH(s, sessions, &sessions) {
+		l = xreallocarray(l, n + 1, sizeof *l);
+		l[n++] = s;
+	}
+	if (order == NULL || strcmp(order, "order") == 0)
+		qsort(l, n, sizeof *l, cmd_list_sessions_cmp);
+
+	for (i = 0; i < n; i++) {
+		s = l[i];
 		ft = format_create(cmdq_get_client(item), item, FORMAT_NONE, 0);
-		format_add(ft, "line", "%u", n);
+		format_add(ft, "line", "%u", i);
 		format_defaults(ft, NULL, s, NULL, NULL);
 
 		if (filter != NULL) {
@@ -83,8 +110,8 @@ cmd_list_sessions_exec(struct cmd *self, struct cmdq_item *item)
 		}
 
 		format_free(ft);
-		n++;
 	}
+	free(l);
 
 	return (CMD_RETURN_NORMAL);
 }
