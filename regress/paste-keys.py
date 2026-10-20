@@ -240,6 +240,12 @@ def main():
         expected = keys if fmt == "csi-u" else b"\x1b[27;5;105~\t\x1b[27;5;106~\r\x1b[27;6;65~"
         raw_case(tmux, keys, expected, fmt)
         print(f"PASS {version} {fmt}: Ctrl-I != Tab, Ctrl-J != Enter, Ctrl-Shift-A", flush=True)
+        reply = b"\x1b[?62;22;52c"
+        typed = b"62;22;52c"
+        raw_case(tmux, reply + reply + typed, typed, fmt)
+        literal_paste = b"\x1b[200~" + reply + b"\x1b[201~"
+        raw_case(tmux, reply + literal_paste, literal_paste, fmt)
+        print(f"PASS {version} {fmt}: repeated device replies are consumed; typed and pasted literals preserved", flush=True)
     if args.nvim:
         nvim_case(tmux, str(Path(shutil.which(args.nvim) or args.nvim).resolve()), args.user_config)
         config = "user-config" if args.user_config else "--clean"

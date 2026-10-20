@@ -1473,7 +1473,7 @@ tty_keys_device_attributes(struct tty *tty, const char *buf, size_t len,
 	char		 tmp[128], *endptr, p[32] = { 0 }, *cp, *next;
 
 	*size = 0;
-	if (tty->flags & TTY_HAVEDA)
+	if (tty->flags & TTY_BRACKETPASTE)
 		return (-1);
 
 	/* First three bytes are always \033[?. */
@@ -1514,6 +1514,10 @@ tty_keys_device_attributes(struct tty *tty, const char *buf, size_t len,
 		if (++n == nitems(p))
 			break;
 	}
+
+	/* Repeated replies must not become (possibly extended) key input. */
+	if (tty->flags & TTY_HAVEDA)
+		return (0);
 
 	/* Add terminal features. */
 	switch (p[0]) {
