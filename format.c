@@ -3038,6 +3038,15 @@ format_cb_session_name(struct format_tree *ft)
 	return (NULL);
 }
 
+/* Callback for session_order. */
+static void *
+format_cb_session_order(struct format_tree *ft)
+{
+	if (ft->s != NULL)
+		return (format_printf("%u", ft->s->order));
+	return (NULL);
+}
+
 /* Callback for session_path. */
 static void *
 format_cb_session_path(struct format_tree *ft)
@@ -4076,6 +4085,9 @@ static const struct format_table_entry format_table[] = {
 	},
 	{ "session_name", FORMAT_TABLE_STRING,
 	  format_cb_session_name
+	},
+	{ "session_order", FORMAT_TABLE_STRING,
+	  format_cb_session_order
 	},
 	{ "session_path", FORMAT_TABLE_STRING,
 	  format_cb_session_path

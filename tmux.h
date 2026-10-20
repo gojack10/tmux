@@ -1615,6 +1615,7 @@ RB_HEAD(session_groups, session_group);
 
 struct session {
 	u_int		 id;
+	u_int		 order;
 
 	char		*name;
 	const char	*cwd;

@@ -131,6 +131,8 @@ printf '%s\n' "$captured" | grep -Fq 'show-buffer' ||
 printf '%s\n' "$captured" | grep -Fq 'show-environment' ||
 	fail "ambiguous completion list was incomplete"
 $OUTER send-keys Escape || exit 1
+# As in run_vi_prompt, let the inner terminal resolve Escape before Meta-r.
+sleep 0.7
 
 # Add entries to both history rings through real prompts.
 bind_prompt 'history-command'

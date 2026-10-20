@@ -57,7 +57,7 @@ cmd_list_sessions_exec(struct cmd *self, struct cmdq_item *item)
 	struct session		**l;
 	u_int		 	  n, i;
 	struct format_tree	 *ft;
-	const char		 *template, *filter;
+	const char		 *template, *filter, *order;
 	char			 *line, *expanded;
 	int			  flag;
 	struct sort_criteria	  sort_crit;
@@ -65,8 +65,12 @@ cmd_list_sessions_exec(struct cmd *self, struct cmdq_item *item)
 	if ((template = args_get(args, 'F')) == NULL)
 		template = LIST_SESSIONS_TEMPLATE;
 	filter = args_get(args, 'f');
+	order = args_get(args, 'O');
 
-	sort_crit.order = sort_order_from_string(args_get(args, 'O'));
+	if (order == NULL || strcmp(order, "order") == 0)
+		sort_crit.order = SORT_INDEX;
+	else
+		sort_crit.order = sort_order_from_string(order);
 	if (sort_crit.order == SORT_END && args_has(args, 'O')) {
 		cmdq_error(item, "invalid sort order");
 		return (CMD_RETURN_ERROR);

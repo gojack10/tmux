@@ -111,7 +111,7 @@ struct session *
 session_create(const char *prefix, const char *name, const char *cwd,
     struct environ *env, struct options *oo, struct termios *tio)
 {
-	struct session	*s;
+	struct session	*s, *sloop;
 
 	s = xcalloc(1, sizeof *s);
 	s->references = 1;
@@ -145,6 +145,8 @@ session_create(const char *prefix, const char *name, const char *cwd,
 				xasprintf(&s->name, "%u", s->id);
 		} while (RB_FIND(sessions, &sessions, s) != NULL);
 	}
+	RB_FOREACH(sloop, sessions, &sessions)
+		s->order++;
 	RB_INSERT(sessions, &sessions, s);
 
 	log_debug("new session %s $%u", s->name, s->id);
@@ -196,6 +198,7 @@ session_free(__unused int fd, __unused short events, void *arg)
 void
 session_destroy(struct session *s, int notify, const char *from)
 {
+	struct session	*sloop;
 	struct winlink	*wl;
 
 	log_debug("session %s destroyed (%s)", s->name, from);
@@ -205,6 +208,10 @@ session_destroy(struct session *s, int notify, const char *from)
 	s->curw = NULL;
 
 	RB_REMOVE(sessions, &sessions, s);
+	RB_FOREACH(sloop, sessions, &sessions) {
+		if (sloop->order > s->order)
+			sloop->order--;
+	}
 	if (notify)
 		events_fire_session("session-closed", s);
 

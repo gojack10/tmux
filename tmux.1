@@ -1297,7 +1297,10 @@ See the
 section.
 .Fl O
 specifies the sort order: one of
-.Ql index ,
+.Ql index
+(persistent session order, the default; also accepted as
+.Ql order )
+,
 .Ql name ,
 .Ql creation
 (time), or
@@ -1318,6 +1321,23 @@ command.
 .D1 Pq alias: Ic locks
 Lock all clients attached to
 .Ar target\-session .
+.It Xo Ic move\-session
+.Op Fl ab
+.Op Fl s Ar src\-session
+.Op Fl t Ar dst\-session
+.Xc
+Move
+.Ar src\-session
+before
+.Pq Fl b
+or after
+.Pq Fl a
+.Ar dst\-session .
+Exactly one of
+.Fl a
+or
+.Fl b
+must be given.
 .Tg new
 .It Xo Ic new\-session
 .Op Fl AdDEPX
@@ -7523,6 +7543,7 @@ The following variables are available, where appropriate:
 .It Li "session_many_attached" Ta "" Ta "1 if multiple clients attached"
 .It Li "session_marked" Ta "" Ta "1 if this session contains the marked pane"
 .It Li "session_name" Ta "#S" Ta "Name of session"
+.It Li "session_order" Ta "" Ta "Position in session order, starting at zero"
 .It Li "session_path" Ta "" Ta "Working directory of session"
 .It Li "session_silence_flag" Ta "" Ta "1 if any window in session has silence alert"
 .It Li "session_stack" Ta "" Ta "Window indexes in most recent order"

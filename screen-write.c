@@ -941,14 +941,18 @@ screen_write_preview(struct screen_write_ctx *ctx, struct screen *src, u_int nx,
 {
 	struct screen		*s = ctx->s;
 	struct grid_cell	 gc;
-	u_int			 cx, cy, px, py;
+	u_int			 cx, cy, px, py, dx, dy, copy_nx, copy_ny;
+	u_int			 src_sx, src_sy;
 
 	cx = s->cx;
 	cy = s->cy;
+	dx = dy = 0;
+	src_sx = screen_size_x(src);
+	src_sy = screen_size_y(src);
 
 	/*
-	 * If the cursor is on, pick the area around the cursor, otherwise use
-	 * the top left.
+	 * If the cursor is on, pick the horizontal area around the cursor,
+	 * otherwise use the left edge.
 	 */
 	if (src->mode & MODE_CURSOR) {
 		px = src->cx;
@@ -956,35 +960,47 @@ screen_write_preview(struct screen_write_ctx *ctx, struct screen *src, u_int nx,
 			px = 0;
 		else
 			px = px - nx / 3;
-		if (px + nx > screen_size_x(src)) {
-			if (nx > screen_size_x(src))
+		if (px + nx > src_sx) {
+			if (nx > src_sx)
 				px = 0;
 			else
-				px = screen_size_x(src) - nx;
+				px = src_sx - nx;
 		}
-		py = src->cy;
-		if (py < ny / 3)
-			py = 0;
-		else
-			py = py - ny / 3;
-		if (py + ny > screen_size_y(src)) {
-			if (ny > screen_size_y(src))
-				py = 0;
-			else
-				py = screen_size_y(src) - ny;
-		}
-	} else {
+	} else
 		px = 0;
+
+	/*
+	 * In choose-tree, the latest terminal output and prompt are the useful
+	 * part, so always anchor previews to the bottom of the source pane. If
+	 * the preview is taller than the source pane, bottom-align the source
+	 * pane inside the preview instead of leaving it at the top.
+	 */
+	if (ny > src_sy) {
 		py = 0;
+		copy_ny = src_sy;
+		dy = ny - src_sy;
+	} else {
+		py = src_sy - ny;
+		copy_ny = ny;
 	}
+	copy_nx = nx;
+	if (copy_nx > src_sx)
+		copy_nx = src_sx;
 
-	screen_write_fast_copy(ctx, src, px, src->grid->hsize + py, nx, ny);
+	if (copy_nx == 0 || copy_ny == 0)
+		return;
 
-	if (src->mode & MODE_CURSOR) {
+	screen_write_cursormove(ctx, cx + dx, cy + dy, 0);
+	screen_write_fast_copy(ctx, src, px, src->grid->hsize + py, copy_nx,
+	    copy_ny);
+
+	if ((src->mode & MODE_CURSOR) &&
+	    src->cx >= px && src->cx < px + copy_nx &&
+	    src->cy >= py && src->cy < py + copy_ny) {
 		grid_view_get_cell(src->grid, src->cx, src->cy, &gc);
 		gc.attr |= GRID_ATTR_REVERSE;
-		screen_write_set_cursor(ctx, cx + (src->cx - px),
-		    cy + (src->cy - py));
+		screen_write_set_cursor(ctx, cx + dx + (src->cx - px),
+		    cy + dy + (src->cy - py));
 		screen_write_cell(ctx, &gc);
 	}
 }

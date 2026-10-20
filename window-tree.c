@@ -34,6 +34,7 @@ static void		 window_tree_update(struct window_mode_entry *);
 static void		 window_tree_key(struct window_mode_entry *,
 			     struct client *, struct session *,
 			     struct winlink *, key_code, struct mouse_event *);
+static u_int		 window_tree_height(void *, u_int);
 
 #define WINDOW_TREE_DEFAULT_COMMAND "switch-client -Zt '%%'"
 
@@ -117,6 +118,7 @@ struct window_tree_modedata {
 	int				  hide_preview_this_pane;
 	int				  preview_is_info;
 	int				  prompt_flags;
+	int				  session_jump_keys;
 
 	struct window_tree_itemdata	**item_list;
 	u_int				  item_size;
@@ -290,7 +292,7 @@ window_tree_build_pane(struct session *s, struct winlink *wl,
 
 	ft = format_create(NULL, NULL, FORMAT_PANE|wp->id, 0);
 	format_defaults(ft, NULL, s, wl, wp);
-	text = format_expand(ft, data->format);
+	text = format_expand_time(ft, data->format);
 	xasprintf(&name, "%u", idx);
 	format_free(ft);
 
@@ -343,7 +345,7 @@ window_tree_build_window(struct session *s, struct winlink *wl,
 		tag = FORMAT_PANE|wl->window->active->id;
 	ft = format_create(NULL, NULL, tag, 0);
 	format_defaults(ft, NULL, s, wl, NULL);
-	text = format_expand(ft, data->format);
+	text = format_expand_time(ft, data->format);
 	xasprintf(&name, "%u", wl->idx);
 	format_free(ft);
 
@@ -401,7 +403,7 @@ window_tree_build_session(struct session *s, void *modedata,
 		tag = FORMAT_PANE|wl->window->active->id;
 	ft = format_create(NULL, NULL, tag, 0);
 	format_defaults(ft, NULL, s, NULL, NULL);
-	text = format_expand(ft, data->format);
+	text = format_expand_time(ft, data->format);
 	format_free(ft);
 
 	if (data->type == WINDOW_TREE_SESSION)
@@ -410,6 +412,7 @@ window_tree_build_session(struct session *s, void *modedata,
 		expanded = 1;
 	mti = mode_tree_add(data->data, NULL, item, (uint64_t)s, s->name, text,
 	    expanded);
+	mode_tree_align(mti, -1);
 	free(text);
 
 	l = sort_get_winlinks_session(s, &n, sort_crit);
@@ -984,6 +987,28 @@ window_tree_get_key(void *modedata, void *itemdata, u_int line)
 	struct window_pane		*wp;
 	char				*expanded;
 	key_code			 key;
+	u_int				 i, n = 0;
+
+	/*
+	 * In session mode (choose-tree -s), only session rows get jump keys,
+	 * numbered by session order rather than visible line. Expanding a
+	 * session no longer renumbers the sessions below it.
+	 */
+	if (data->session_jump_keys) {
+		if (item->type != WINDOW_TREE_SESSION)
+			return (KEYC_UNKNOWN);
+		for (i = 0; i < data->item_size; i++) {
+			if (data->item_list[i] == item)
+				break;
+			if (data->item_list[i]->type == WINDOW_TREE_SESSION)
+				n++;
+		}
+		if (n < 10)
+			return ('0' + n);
+		if (n < 36)
+			return (KEYC_META|('a' + n - 10));
+		return (KEYC_UNKNOWN);
+	}
 
 	ft = format_create(NULL, NULL, FORMAT_NONE, 0);
 	window_tree_pull_item(item, &s, &wl, &wp);
@@ -1103,6 +1128,18 @@ window_tree_help(u_int *width, const char **item)
 	return (window_tree_help_lines);
 }
 
+static u_int
+window_tree_height(__unused void *modedata, u_int height)
+{
+	/*
+	 * Split roughly in half: session list on top, preview below. On
+	 * short screens fall back to the smallest list area tmux allows.
+	 */
+	if (height <= 20)
+		return (height <= 10 ? 0 : height - 10);
+	return (height / 2);
+}
+
 static struct screen *
 window_tree_init(struct window_mode_entry *wme,
     __unused struct cmdq_item *item, struct cmd_find_state *fs,
@@ -1138,13 +1175,14 @@ window_tree_init(struct window_mode_entry *wme,
 		data->command = xstrdup(args_string(args, 0));
 	data->squash_groups = !args_has(args, 'G');
 	data->hide_preview_this_pane = args_has(args, 'h');
+	data->session_jump_keys = args_has(args, 's') && !args_has(args, 'K');
 	if (args_has(args, 'y'))
 		data->prompt_flags = PROMPT_ACCEPT;
 
 	data->data = mode_tree_start(wp, args, window_tree_build,
-	    window_tree_draw, window_tree_search, window_tree_menu, NULL,
-	    window_tree_get_key, window_tree_swap, window_tree_sort,
-	    window_tree_help, data, window_tree_menu_items, &s);
+	    window_tree_draw, window_tree_search, window_tree_menu,
+	    window_tree_height, window_tree_get_key, window_tree_swap,
+	    window_tree_sort, window_tree_help, data, window_tree_menu_items, &s);
 	mode_tree_zoom(data->data, args);
 	mode_tree_view_name(data->data, "preview");
 
